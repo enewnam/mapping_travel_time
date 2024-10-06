@@ -1,52 +1,410 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8" />
-    <title>Leaflet Map</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Leaflet CSS and JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <meta charset="utf-8">
+    <title>Mapbox Layers with Attribute Popups</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
     <style>
         body { margin: 0; padding: 0; }
-        #map { width: 100%; height: 100vh; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+        .layer-buttons {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.9); /* Slightly transparent background */
+        padding: 15px;
+        z-index: 1;
+        top: 10px;
+        left: 10px;
+        border-radius: 10px; /* Rounded corners for the button container */
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Shadow for the container */
+        width: 200px;
+        }
+
+        .layer-buttons button {
+        background-color: #D3D3D3; /* Green background */
+        border: none;
+        color: rgb(100, 97, 97); /* White text */
+        padding: 10px 15px; /* Padding inside buttons */
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 14px;
+        font-family: Helvetica, sans-serif;
+        margin-bottom: 10px; /* Space between buttons */
+        border-radius: 5px; /* Rounded corners */
+        cursor: pointer;
+        transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+        width: 100%; /* Make buttons fill the width of the container */
+        }
+
+        .layer-buttons button:hover {
+        background-color: #A9C6A9; /* Darker green on hover */
+        }
+
+        .layer-buttons button:focus {
+        outline: none; /* Remove focus outline */
+        background-color: #A9C6A9; /* Even darker green on focus */
+        }
+
+        .layer-buttons button:active {
+        background-color: #A9C6A9; /* Darker shade on button press */
+        }
+
+        .legend {
+        margin-top: 15px;
+        font-size: 14px;
+        font-family: Helvetica, sans-serif;
+        line-height: 1.5;
+        }
+
+        .mapboxgl-popup-content {
+        width: 300px; /* Set the desired width */
+        }
+
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <script>
-        // Initialize the map and set its view
-        var map = L.map('map').setView([39.9526, -75.1652], 12); // Change coordinates as needed
 
-        // Add a base layer to the map
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
+<div id="map"></div>
 
-        // Load and display GeoJSON data
-        fetch('final_ttd_mapping_part1.geojson') // Replace with the path to your GeoJSON file
-            .then(response => response.json())
-            .then(data => {
-                L.geoJSON(data, {
-                    style: function (feature) {
-                        return { color: "#ff7800" };
-                    }
-                }).addTo(map);
-            })
-            .catch(error => console.error(error));
+<div class="layer-buttons">
 
-        // Load and display GeoJSON data
-        fetch('final_ttd_mapping_part2.geojson') // Replace with the path to your GeoJSON file
-            .then(response => response.json())
-            .then(data => {
-                L.geoJSON(data, {
-                    style: function (feature) {
-                        return { color: "#ff7800" };
-                    }
-                }).addTo(map);
-            })
-            .catch(error => console.error(error));
 
-    </script>
+    <font style="font-size: 24px; font-family: Helvetica, sans-serif;">Travel Time to Providers</font>
+
+    &nbsp;<br><br>
+
+    <font style="font-size: 14px; font-family: Helvetica, sans-serif;">Use this map to explore travel times to colon cancer providers. Click cells or providers to find out more.</font>
+
+    &nbsp;<br><br>
+
+    <button onclick="showLayer('points-layer')">NJ Providers</button>
+    <button onclick="showLayer('drive-time-layer')">Driving</button>
+    <button onclick="showLayer('transit-time-layer')">Transit and Walking</button>
+    <button onclick="showLayer('total-walk-layer')">Under 15 Minutes Walking</button>
+    <button onclick="showLayer('transit-vs-driving-layer')">Transit vs. Driving</button>
+
+    <div id="legend" class="legend"></div>
+</div>
+
+<script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoiZW5ld25hbSIsImEiOiJjbG9qNWFzOHowOGhzMmlxb2Ixa2U5Zjh0In0.YU05M2j4gqoBR8WGWhU-Mw';
+
+    var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/light-v10',
+        center: [-74.75, 40],
+        zoom: 9
+    });
+
+    map.on('load', function () {
+    map.addSource('your-tileset', {
+        'type': 'vector',
+        'url': 'mapbox://enewnam.423vbtva'
+    });
+
+    // Add the new GeoJSON source for the points
+    map.addSource('points-source', {
+        'type': 'geojson',
+        'data': 'https://api.mapbox.com/datasets/v1/enewnam/cm1y3l92718tf1tpg9bas71wa/features?access_token=' + mapboxgl.accessToken
+    });
+
+    // Add the new points layer
+    map.addLayer({
+        'id': 'points-layer',
+        'type': 'circle',
+        'source': 'points-source',
+        'layout': {
+            'visibility': 'none' // Initially hide the points
+        },
+        'paint': {
+            'circle-radius': 8,
+            'circle-color': '#000000', // Red color for the points
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#FFFFFF'
+        }
+    });
+
+        // Layer definitions
+        const layers = [
+            {
+                id: 'drive-time-layer',
+                colorProperty: 'DriveMins',
+                popupContent: ['Region', 'DriveDest', 'DriveMins'],
+                legend: `
+                    <b>Driving Time</b><br>
+                    <div style="background-color: #2E8B57; width: 20px; height: 20px; display: inline-block;"></div> < 5 mins<br>
+                    <div style="background-color: #ADFF2F; width: 20px; height: 20px; display: inline-block;"></div> 5 - 10 mins<br>
+                    <div style="background-color: #FFFF00; width: 20px; height: 20px; display: inline-block;"></div> 10 - 15 mins<br>
+                    <div style="background-color: #FFA500; width: 20px; height: 20px; display: inline-block;"></div> 15 - 20 mins<br>
+                    <div style="background-color: #FF4500; width: 20px; height: 20px; display: inline-block;"></div> 20 - 25 mins<br>
+                    <div style="background-color: #DC143C; width: 20px; height: 20px; display: inline-block;"></div> 25 - 30 mins<br>
+                    <div style="background-color: #8B0000; width: 20px; height: 20px; display: inline-block;"></div> > 30 mins
+                `
+            },
+            {
+                id: 'transit-time-layer',
+                colorProperty: 'TravelMins',
+                popupContent: ['TravelMins', 'Region', 'TravType'],
+                legend: `
+                    <b>Transit and Walking</b><br>
+                    <div style="background-color: #2E8B57; width: 20px; height: 20px; display: inline-block;"></div> < 5 mins<br>
+                    <div style="background-color: #ADFF2F; width: 20px; height: 20px; display: inline-block;"></div> 5 - 10 mins<br>
+                    <div style="background-color: #FFFF00; width: 20px; height: 20px; display: inline-block;"></div> 10 - 15 mins<br>
+                    <div style="background-color: #FFA500; width: 20px; height: 20px; display: inline-block;"></div> 15 - 20 mins<br>
+                    <div style="background-color: #FF4500; width: 20px; height: 20px; display: inline-block;"></div> 20 - 25 mins<br>
+                    <div style="background-color: #DC143C; width: 20px; height: 20px; display: inline-block;"></div> 25 - 30 mins<br>
+                    <div style="background-color: #8B0000; width: 20px; height: 20px; display: inline-block;"></div> > 30 mins
+                `
+            },
+            {
+                id: 'total-walk-layer',
+                colorProperty: 'TravMins15',
+                popupContent: ['TravelMins', 'Region', 'TravType'],
+                legend: `
+                    <b>Walking (Under 15 Min)</b><br>
+                    <div style="background-color: #2E8B57; width: 20px; height: 20px; display: inline-block;"></div> < 3 mins<br>
+                    <div style="background-color: #ADFF2F; width: 20px; height: 20px; display: inline-block;"></div> 3 - 6 mins<br>
+                    <div style="background-color: #FFFF00; width: 20px; height: 20px; display: inline-block;"></div> 6 - 9 mins<br>
+                    <div style="background-color: #FFA500; width: 20px; height: 20px; display: inline-block;"></div> 9 - 12 mins<br>
+                    <div style="background-color: #FF4500; width: 20px; height: 20px; display: inline-block;"></div> 12 - 15 mins<br>
+                `
+            },
+            {
+                id: 'transit-vs-driving-layer',
+                colorProperty: 'diff',
+                popupContent: ['TravelMins', 'Region', 'TravType'],
+                legend: `
+                    <b>Faster: Transit or Driving</b><br>
+                    <div style="background-color: #2E8B57; width: 20px; height: 20px; display: inline-block;"></div> Transit<br>
+                    <div style="background-color: #ADFF2F; width: 20px; height: 20px; display: inline-block;"></div> Driving (5 min)<br>
+                    <div style="background-color: #FFFF00; width: 20px; height: 20px; display: inline-block;"></div> Driving (10 min)<br>
+                    <div style="background-color: #FFA500; width: 20px; height: 20px; display: inline-block;"></div> Driving (15 min)<br>
+                    <div style="background-color: #FF4500; width: 20px; height: 20px; display: inline-block;"></div> Driving (20 min)<br>
+                    <div style="background-color: #DC143C; width: 20px; height: 20px; display: inline-block;"></div> Driving (25 min)<br>
+                    <div style="background-color: #8B0000; width: 20px; height: 20px; display: inline-block;"></div> Driving (>25 min)
+                `
+            }
+            // Add other layers as needed
+        ];
+
+
+
+// Define the color scheme (consistent across all layers)
+const colorScheme = [
+    '#2E8B57', // Green
+    '#ADFF2F', // Light green
+    '#FFFF00', // Yellow
+    '#FFA500', // Orange
+    '#FF4500', // Dark orange
+    '#DC143C', // Red
+    '#8B0000'  // Dark red
+];
+
+// Define step values for each layer
+const colorSteps = {
+    'drive-time-layer': [
+        'step',
+        ['get', 'DriveMins'],
+        colorScheme[0], 5,   // Green for <= 5
+        colorScheme[1], 10,  // Light green for <= 10
+        colorScheme[2], 15,  // Yellow for <= 15
+        colorScheme[3], 20,  // Orange for <= 20
+        colorScheme[4], 25,  // Dark orange for <= 25
+        colorScheme[5], 30,  // Red for <= 30
+        colorScheme[6]       // Dark red for > 30
+    ],
+    'transit-time-layer': [
+        'step',
+        ['get', 'TravelMins'],
+        colorScheme[0], 5,   
+        colorScheme[1], 10,   
+        colorScheme[2], 15, 
+        colorScheme[3], 20, 
+        colorScheme[4], 25,  
+        colorScheme[5], 30,  
+        colorScheme[6]  
+    ],
+    'total-walk-layer': [
+        'step',
+        ['get', 'TravMins15'],
+        colorScheme[0], 3,
+        colorScheme[1], 6,
+        colorScheme[2], 9,
+        colorScheme[3], 12,
+        colorScheme[4], 15,
+        colorScheme[5]
+    ],
+    'transit-vs-driving-layer': [
+        'step',
+        ['get', 'diff'],
+        colorScheme[0], 0,   
+        colorScheme[1], 5,   
+        colorScheme[2], 10, 
+        colorScheme[3], 15, 
+        colorScheme[4], 20,  
+        colorScheme[5], 25,  
+        colorScheme[6]
+    ],
+    // Add more layers with their unique steps as needed
+};
+
+// Add layers to the map
+layers.forEach(layer => {
+    map.addLayer({
+        'id': layer.id,
+        'type': 'fill',
+        'source': 'your-tileset',
+        'source-layer': 'final_ttd_mapping',
+        'layout': { 'visibility': layer.id === 'drive-time-layer' ? 'visible' : 'none' }, // Show drive-time-layer by default
+        'paint': {
+            'fill-color': colorSteps[layer.id] || [
+                'step',
+                ['get', layer.colorProperty],
+                colorScheme[0], 5,
+                colorScheme[1], 10,
+                colorScheme[2], 15,
+                colorScheme[3], 20,
+                colorScheme[4], 25,
+                colorScheme[5], 30,
+                colorScheme[6]
+            ],
+            'fill-opacity': 0.7
+        }
+    });
+
+
+map.moveLayer('points-layer');
+
+
+// Add different popups for each layer
+map.on('click', layer.id, function (e) {
+        var properties = e.features[0].properties;
+
+        let popupContent;
+        
+        // Customize the popup for each layer
+        if (layer.id === 'drive-time-layer') {
+            popupContent = `
+
+                <b>DRIVING TO PROVIDER</b><br><br>
+
+                <b>Region:</b> ${properties['region']}<br>
+                <b>Nearest Provider:</b> ${properties['DriveDest']}<br>
+                <b>Drive Time (minutes):</b> ${Number(properties['DriveMins']).toFixed(1)}
+            `;
+        } else if (layer.id === 'transit-time-layer') {
+            popupContent = `
+
+                <b>WALKING AND TRANSIT TO PROVIDER</b><br><br>
+
+                <b>Region:</b> ${properties['region']}<br>
+                <b>Most Accessible Provider:</b> ${properties['tt_dest']}<br>
+                <b>Fastest Travel Type:</b> ${properties['TravType']}<br>
+                <b>Travel Type with Least Walking:</b> ${properties['TypMinWalk']}<br>
+
+                <b>Walking and/or Transit to Provider (Minutes):</b> ${Number(properties['TravelMins']).toFixed(1)}<br>
+                <b>Total Walking Required (Minutes):</b> ${Number(properties['PTWlkMins']).toFixed(1)}<br>
+                <b>Transit Types Available:</b> ${properties['transtype']}<br>
+                <b>Lines:</b> ${properties['line']}
+            `;
+
+        } else if (layer.id === 'total-walk-layer') {
+            popupContent = `
+
+                <b>BELOW 15 MINUTES WALKING TOTAL</b><br><br>
+
+                <b>Region:</b> ${properties['region']}<br>
+                <b>Most Accessible Provider:</b> ${properties['tt_dest']}<br>
+                <b>Fastest Travel Type:</b> ${properties['TravType']}<br>
+                <b>Total Walking Required (Minutes):</b> ${Number(properties['TravMins15']).toFixed(1)}<br><br>
+                
+                <b>Transit Types Available:</b> ${properties['transtype']}<br>
+                <b>Lines:</b> ${properties['line']}  
+            `;
+
+        } else if (layer.id === 'transit-vs-driving-layer') {
+            popupContent = `
+
+                <b>WALKING AND TRANSIT VS. DRIVING</b><br><br>
+
+                <b>Region:</b> ${properties['region']}<br>
+                <b>Transit Types Available:</b> ${properties['transtype']}<br>
+                <b>Lines:</b> ${properties['line']}<br><br>
+
+                <b>Driving</b><br>
+                <b>Most Accessible Provider:</b> ${properties['DriveDest']}<br>
+                <b>Drive to Provider (minutes):</b> ${Number(properties['DriveMins']).toFixed(1)}<br><br>
+
+                <b>Walking/Transit</b><br>
+                <b>Most Accessible Provider:</b> ${properties['tt_dest']}<br>
+                <b>Fastest Travel Type:</b> ${properties['TravType']}<br>
+                <b>Walking and/or Transit to Provider (Minutes):</b> ${Number(properties['TravelMins']).toFixed(1)}<br><br>
+
+                <b>Difference in Travel Time (Minutes):</b> ${Number(properties['diff']).toFixed(1)}
+            `;
+        }
+
+                new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(popupContent)
+                    .addTo(map);
+            });
+        });
+
+
+        map.on('click', 'points-layer', function (e) {
+
+        var properties = e.features[0].properties;
+        var popupContent = `
+            <b>Provider:</b> ${properties['NPI']}
+        `;
+
+        new mapboxgl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(popupContent)
+            .addTo(map);
+    });
+
+        // Function to switch between layers and update the legend
+        window.showLayer = function(layerToShow) {
+    if (layerToShow === 'points-layer') {
+        // Toggle only the points layer
+        var pointsVisibility = map.getLayoutProperty('points-layer', 'visibility');
+        if (pointsVisibility === 'none') {
+            map.setLayoutProperty('points-layer', 'visibility', 'visible');
+        } else {
+            map.setLayoutProperty('points-layer', 'visibility', 'none');
+        }
+    } else {
+        // Toggle all other layers (except the points layer)
+        layers.forEach(layer => {
+            var visibility = map.getLayoutProperty(layer.id, 'visibility');
+            if (layer.id === layerToShow) {
+                if (visibility === 'none') {
+                    map.setLayoutProperty(layer.id, 'visibility', 'visible');
+                }
+            } else {
+                map.setLayoutProperty(layer.id, 'visibility', 'none');
+            }
+        });
+
+        // Update the legend for non-points layers
+        const selectedLayer = layers.find(layer => layer.id === layerToShow);
+        if (selectedLayer) {
+            document.getElementById('legend').innerHTML = selectedLayer.legend;
+        }
+    }
+};
+
+
+
+        // Display the initial legend for the default visible layer
+        document.getElementById('legend').innerHTML = layers[0].legend;
+    });
+</script>
+
 </body>
 </html>
